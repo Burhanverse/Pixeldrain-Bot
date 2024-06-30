@@ -24,7 +24,7 @@ python bot.py
 - `BOT_TOKEN` Your bot token from @BotFather
 - `PIXELDRAIN_API_KEY` Your [Pixeldrain](https://pixeldrain.com) API KEY 
 
-### Note: Make the required changes in `.env` file.
+##### Note: Make the required changes in `.env` file.
 
 ---
 

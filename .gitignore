@@ -3,5 +3,3 @@
 *.session
 *.session-journal
 *.pyc
-*.env
-test.py
