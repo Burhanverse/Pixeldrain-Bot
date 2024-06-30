@@ -2,3 +2,4 @@ pyrogram
 tgcrypto
 pixeldrain
 python-dotenv
+requests
