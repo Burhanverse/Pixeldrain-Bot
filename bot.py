@@ -1,6 +1,6 @@
 import os
 import dotenv
-import pixeldrain
+import requests
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -9,18 +9,20 @@ dotenv.load_dotenv()
 
 Bot = Client(
     "Pixeldrain-Bot",
-    bot_token = os.environ["BOT_TOKEN"],
-    api_id = int(os.environ["API_ID"]),
-    api_hash = os.environ["API_HASH"]
+    bot_token=os.environ["BOT_TOKEN"],
+    api_id=int(os.environ["API_ID"]),
+    api_hash=os.environ["API_HASH"]
 )
+
+PIXELDRAIN_API_KEY = os.environ["PIXELDRAIN_API_KEY"]
 
 START_TEXT = """Hello {},
 Please send a media for pixeldrain.com stream link. \
 You can also send pixeldrain media ID or link to get more info.
 
-Made by @FayasNoushad"""
+Made by @aqxza"""
 
-BUTTON = InlineKeyboardButton(text="Feedback", url="https://telegram.me/FayasNoushad")
+BUTTON = InlineKeyboardButton(text="Feedback", url="https://telegram.me/aqxza")
 
 
 @Bot.on_message(filters.private & filters.command("start"))
@@ -31,7 +33,7 @@ async def start(bot, update):
         quote=True,
         reply_markup=InlineKeyboardMarkup([[BUTTON]])
     )
-    
+
 
 def get_id(text):
     if text.startswith("http"):
@@ -49,9 +51,12 @@ def get_id(text):
 async def send_data(id, message):
     # pixeldrain data
     try:
-        data = pixeldrain.info(id)
-    except:
+        response = requests.get(f"https://pixeldrain.com/api/file/{id}/info")
+        data = response.json() if response.status_code == 200 else None
+    except Exception as e:
         data = None
+        print(f"Error: {e}")
+
     text = ""
     if data:
         text += f"**File Name:** `{data['name']}`" + "\n"
@@ -79,7 +84,7 @@ async def send_data(id, message):
             [BUTTON]
         ]
     )
-    
+
     await message.edit_text(
         text=text,
         reply_markup=reply_markup,
@@ -95,7 +100,7 @@ async def info(bot, update):
             return
     except:
         return
-    
+
     message = await update.reply_text(
         text="`Processing...`",
         quote=True,
@@ -106,14 +111,14 @@ async def info(bot, update):
 
 @Bot.on_message(filters.private & filters.media)
 async def media_filter(bot, update):
-    
+
     logs = []
     message = await update.reply_text(
         text="`Processing...`",
         quote=True,
         disable_web_page_preview=True
     )
-    
+
     try:
         # download
         try:
@@ -125,7 +130,7 @@ async def media_filter(bot, update):
             pass
         media = await update.download()
         logs.append("Download Successfully")
-        
+
         # upload
         try:
             await message.edit_text(
@@ -134,42 +139,43 @@ async def media_filter(bot, update):
             )
         except:
             pass
+
         try:
-            response = pixeldrain.upload_file(media)
+            with open(media, 'rb') as file:
+                response = requests.post(
+                    "https://pixeldrain.com/api/file",
+                    files={'file': file},
+                    auth=('', PIXELDRAIN_API_KEY)
+                )
             logs.append("Upload Successfully")
-            try:
-                os.remove(media)
-                logs.append("Remove media")
-            except:
-                pass
-            await message.edit_text(
-                text="`Uploaded Successfully!`",
-                disable_web_page_preview=True
-            )
+            os.remove(media)
+            logs.append("Remove media")
+
+            response_data = response.json()
+            if response.status_code == 201:
+                await message.edit_text(
+                    text="`Uploaded Successfully!`",
+                    disable_web_page_preview=True
+                )
+                await send_data(response_data["id"], message)
+            else:
+                logs.append("Success is False")
+                await message.edit_text(
+                    text=f"**Error {response_data['value']}:-** `{response_data['message']}`",
+                    disable_web_page_preview=True
+                )
+
         except Exception as error:
             logs.append("Not Uploading")
             await message.edit_text(
-                text=f"Error :- `{error}`"+"\n\n"+'\n'.join(logs),
+                text=f"Error :- `{error}`" + "\n\n" + '\n'.join(logs),
                 disable_web_page_preview=True
             )
             return
-        
-        # after upload
-        if response["success"]:
-            logs.append("Success is True")
-            await send_data(response["id"], message)
-        else:
-            logs.append("Success is False")
-            value = response["value"]
-            error = response["message"]
-            await message.edit_text(
-                text=f"**Error {value}:-** `{error}`",
-                disable_web_page_preview=True
-            )
-            
+
     except Exception as error:
         await message.edit_text(
-            text=f"Error :- `{error}`"+"\n\n"+'\n'.join(logs),
+            text=f"Error :- `{error}`" + "\n\n" + '\n'.join(logs),
             disable_web_page_preview=True
         )
 
