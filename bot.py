@@ -69,6 +69,11 @@ def format_size(size):
     else:
         return f"{size / (1024 * 1024):.2f} MB"
 
+def format_date(date_str):
+    date, time = date_str.split("T")
+    time = time.split(".")[0]  # remove milliseconds and 'Z'
+    return f"{date} {time}"
+
 async def send_data(id, message):
     # pixeldrain data
     try:
@@ -78,18 +83,21 @@ async def send_data(id, message):
         data = None
         print(f"Error: {e}")
 
-    text = ""
     if data:
-        text += f"**File Name:** `{data['name']}`" + "\n"
-    text += f"**Download Page:** `https://pixeldrain.com/u/{id}`" + "\n"
-    text += f"**Direct Download Link:** `https://pixeldrain.com/api/file/{id}`" + "\n"
-    if data:
-        text += f"**Upload Date:** `{data['date_upload']}`" + "\n"
-        text += f"**Last View Date:** `{data['date_last_view']}`" + "\n"
-        text += f"**Size:** `{format_size(data['size'])}`" + "\n"
-        text += f"**Total Views:** `{data['views']}`" + "\n"
-        text += f"**Bandwidth Used:** `{format_size(data['bandwidth_used'])}`" + "\n"
-        text += f"**Mime Type:** `{data['mime_type']}`"
+        text = (
+            f"**File Name:** `{data['name']}`\n"
+            f"**Download Page:** [Click Here](https://pixeldrain.com/u/{id})\n"
+            f"**Direct Link:** [Click Here](https://pixeldrain.com/api/file/{id})\n"
+            f"**Upload Date:** `{format_date(data['date_upload'])}`\n"
+            f"**Last View Date:** `{format_date(data['date_last_view'])}`\n"
+            f"**File Size:** `{format_size(data['size'])}`\n"
+            f"**Total Views:** `{data['views']}`\n"
+            f"**Bandwidth Used:** `{format_size(data['bandwidth_used'])}`\n"
+            f"**File Type:** `{data['mime_type']}`"
+        )
+    else:
+        text = "Failed to retrieve file information."
+
     reply_markup = InlineKeyboardMarkup(
         [
             [
