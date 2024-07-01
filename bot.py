@@ -19,8 +19,8 @@ authorized_users = list(map(int, os.getenv('AUTHORIZED_USERS').split(',')))
 PIXELDRAIN_API_KEY = os.environ["PIXELDRAIN_API_KEY"]
 
 START_TEXT = """Hello {},
-Please send a media for pixeldrain.com stream link. \
-You can also send pixeldrain media ID or link to get more info."""
+Ready to share some media? \
+Send a file to get a Pixeldrain stream link, or drop a Pixeldrain media ID or link to get the scoop on your file!"""
 
 UNAUTH_TEXT = """Sorry, you are not authorized to use this bot. \
 Please contact the bot owner by clicking the button below for access."""
@@ -144,6 +144,14 @@ async def media_filter(bot, update):
         media = await update.download()
         logs.append("Download Successfully")
 
+        # rename file to include user ID
+        user_id = update.from_user.id
+        dir_name, file_name = os.path.split(media)
+        file_base, file_extension = os.path.splitext(file_name)
+        renamed_file = os.path.join(dir_name, f"{user_id}_{file_base}{file_extension}")
+        os.rename(media, renamed_file)
+        logs.append("Renamed file successfully")
+
         # upload
         try:
             await message.edit_text(
@@ -154,15 +162,15 @@ async def media_filter(bot, update):
             pass
 
         try:
-            with open(media, 'rb') as file:
+            with open(renamed_file, 'rb') as file:
                 response = requests.post(
                     "https://pixeldrain.com/api/file",
                     files={'file': file},
                     auth=('', PIXELDRAIN_API_KEY)
                 )
             logs.append("Upload Successfully")
-            os.remove(media)
-            logs.append("Remove media")
+            os.remove(renamed_file)
+            logs.append("Removed media")
 
             response_data = response.json()
             if response.status_code == 201:
