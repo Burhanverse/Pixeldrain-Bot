@@ -61,6 +61,14 @@ def get_id(text):
         return None
     return id
 
+def format_size(size):
+    if size < 1024:
+        return f"{size} B"
+    elif size < 1024 * 1024:
+        return f"{size / 1024:.2f} KB"
+    else:
+        return f"{size / (1024 * 1024):.2f} MB"
+
 async def send_data(id, message):
     # pixeldrain data
     try:
@@ -78,9 +86,9 @@ async def send_data(id, message):
     if data:
         text += f"**Upload Date:** `{data['date_upload']}`" + "\n"
         text += f"**Last View Date:** `{data['date_last_view']}`" + "\n"
-        text += f"**Size:** `{data['size']}`" + "\n"
+        text += f"**Size:** `{format_size(data['size'])}`" + "\n"
         text += f"**Total Views:** `{data['views']}`" + "\n"
-        text += f"**Bandwidth Used:** `{data['bandwidth_used']}`" + "\n"
+        text += f"**Bandwidth Used:** `{format_size(data['bandwidth_used'])}`" + "\n"
         text += f"**Mime Type:** `{data['mime_type']}`"
     reply_markup = InlineKeyboardMarkup(
         [
@@ -142,7 +150,7 @@ async def media_filter(bot, update):
         except:
             pass
         media = await update.download()
-        logs.append("Download Successfully")
+        logs.append("Downloaded Successfully")
 
         # rename file to include user ID
         user_id = update.from_user.id
@@ -155,7 +163,7 @@ async def media_filter(bot, update):
         # upload
         try:
             await message.edit_text(
-                text="`Download Successfully, Now Uploading...`",
+                text="`Downloaded Successfully, Now Uploading...`",
                 disable_web_page_preview=True
             )
         except:
@@ -168,7 +176,7 @@ async def media_filter(bot, update):
                     files={'file': file},
                     auth=('', PIXELDRAIN_API_KEY)
                 )
-            logs.append("Upload Successfully")
+            logs.append("Uploaded Successfully")
             os.remove(renamed_file)
             logs.append("Removed media")
 
