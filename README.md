@@ -3,7 +3,7 @@ A telegram media to pixeldrain upload bot
 
 ---
 
-## Deploy
+## Deploy:
 
 ```sh
 git clone https://github.com/Burhanverse/Pixeldrain-Bot.git
@@ -17,10 +17,18 @@ python bot.py
 
 ---
 
-## Variables
+## Features:
+
+ * [x] User Authorization Support.
+ * [x] Support Pixeldrain API.
+ * [x] Support multiple files upload in one go.
+ * [x] No cooldown timer.
+
+## Variables:
 
 - `API_HASH` Your API Hash from [Telegram](https://my.telegram.org)
 - `API_ID` Your API ID from [Telegram](https://my.telegram.org)
+- `AUTHORIZED_USERS` Comma-separated list of authorized telegram user IDs.
 - `BOT_TOKEN` Your bot token from @BotFather
 - `PIXELDRAIN_API_KEY` Your [Pixeldrain](https://pixeldrain.com) API KEY 
 
@@ -28,7 +36,7 @@ python bot.py
 
 ---
 
-## Credits
+## Credits:
 
 - [Pixeldrain API](https://pixeldrain.com/api)
 - [Pyrogram](https://pyrogram.org)

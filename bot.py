@@ -4,7 +4,6 @@ import requests
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-
 dotenv.load_dotenv()
 
 Bot = Client(
@@ -14,26 +13,41 @@ Bot = Client(
     api_hash=os.environ["API_HASH"]
 )
 
+# Get authorized user IDs from .env
+authorized_users = list(map(int, os.getenv('AUTHORIZED_USERS').split(',')))
+
 PIXELDRAIN_API_KEY = os.environ["PIXELDRAIN_API_KEY"]
 
 START_TEXT = """Hello {},
 Please send a media for pixeldrain.com stream link. \
-You can also send pixeldrain media ID or link to get more info.
+You can also send pixeldrain media ID or link to get more info."""
 
-Made by @aqxza"""
+UNAUTH_TEXT = """Sorry, you are not authorized to use this bot. \
+Please contact the bot owner by clicking the button below for access."""
 
 BUTTON = InlineKeyboardButton(text="Feedback", url="https://telegram.me/aqxza")
 
+# Filter to check if the user is authorized
+def authorized_user_filter(_, __, message):
+    return message.from_user.id in authorized_users
 
+# Handler for /start command
 @Bot.on_message(filters.private & filters.command("start"))
-async def start(bot, update):
-    await update.reply_text(
-        text=START_TEXT.format(update.from_user.mention),
-        disable_web_page_preview=True,
-        quote=True,
-        reply_markup=InlineKeyboardMarkup([[BUTTON]])
-    )
-
+async def start(bot, message):
+    if authorized_user_filter(None, None, message):
+        await message.reply_text(
+            text=START_TEXT.format(message.from_user.mention),
+            disable_web_page_preview=True,
+            quote=True,
+            reply_markup=InlineKeyboardMarkup([[BUTTON]])
+        )
+    else:
+        await message.reply_text(
+            text=UNAUTH_TEXT,
+            disable_web_page_preview=True,
+            quote=True,
+            reply_markup=InlineKeyboardMarkup([[BUTTON]])
+        )
 
 def get_id(text):
     if text.startswith("http"):
@@ -46,7 +60,6 @@ def get_id(text):
     else:
         return None
     return id
-
 
 async def send_data(id, message):
     # pixeldrain data
@@ -91,8 +104,8 @@ async def send_data(id, message):
         disable_web_page_preview=True
     )
 
-
-@Bot.on_message(filters.private & filters.text)
+# Handler for authorized users to get pixeldrain info
+@Bot.on_message(filters.private & filters.text & filters.create(authorized_user_filter))
 async def info(bot, update):
     try:
         id = get_id(update.text)
@@ -108,8 +121,8 @@ async def info(bot, update):
     )
     await send_data(id, message)
 
-
-@Bot.on_message(filters.private & filters.media)
+# Handler for authorized users to upload media
+@Bot.on_message(filters.private & filters.media & filters.create(authorized_user_filter))
 async def media_filter(bot, update):
 
     logs = []
@@ -179,5 +192,15 @@ async def media_filter(bot, update):
             disable_web_page_preview=True
         )
 
+# Handler for unauthorized users attempting to use the bot
+@Bot.on_message(filters.private & ~filters.command("start"))
+async def unauthorized_user_handler(bot, message):
+    if not authorized_user_filter(None, None, message):
+        await message.reply_text(
+            text=UNAUTH_TEXT,
+            disable_web_page_preview=True,
+            quote=True,
+            reply_markup=InlineKeyboardMarkup([[BUTTON]])
+        )
 
 Bot.run()
