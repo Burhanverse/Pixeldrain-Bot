@@ -3,9 +3,11 @@ import dotenv
 import requests
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pymongo import MongoClient
 
 dotenv.load_dotenv()
 
+# Bot configuration
 Bot = Client(
     "Pixeldrain-Bot",
     bot_token=os.environ["BOT_TOKEN"],
@@ -13,23 +15,28 @@ Bot = Client(
     api_hash=os.environ["API_HASH"]
 )
 
-# Get authorized user IDs from .env
-authorized_users = list(map(int, os.getenv('AUTHORIZED_USERS').split(',')))
-
 PIXELDRAIN_API_KEY = os.environ["PIXELDRAIN_API_KEY"]
 
 START_TEXT = """Hello {},
-Ready to share some media? \
-Send a file to get a Pixeldrain stream link, or drop a Pixeldrain media ID or link to get the scoop on your file!"""
+Ready to share some media? Send a file to get a Pixeldrain stream link, or drop a Pixeldrain media ID or link to get the scoop on your file!"""
 
-UNAUTH_TEXT = """Sorry, you are not authorized to use this bot. \
-Please contact the bot owner by clicking the button below for access."""
+UNAUTH_TEXT = """Sorry, you are not authorized to use this bot. Please contact the bot owner by clicking the button below for access."""
 
 BUTTON = InlineKeyboardButton(text="Feedback", url="https://telegram.me/aqxza")
 
+# MongoDB configuration
+MONGODB_URI = os.environ["MONGODB_URI"]
+client = MongoClient(MONGODB_URI)
+db = client['pixeldrain_bot']
+authorized_users_col = db['authorized_users']
+
+# Function to check if the user is authorized
+def is_authorized(user_id):
+    return authorized_users_col.find_one({"user_id": user_id}) is not None
+
 # Filter to check if the user is authorized
 def authorized_user_filter(_, __, message):
-    return message.from_user.id in authorized_users
+    return is_authorized(message.from_user.id)
 
 # Handler for /start command
 @Bot.on_message(filters.private & filters.command("start"))
@@ -48,6 +55,54 @@ async def start(bot, message):
             quote=True,
             reply_markup=InlineKeyboardMarkup([[BUTTON]])
         )
+
+# Handler for /auth_user command (only for the bot owner)
+@Bot.on_message(filters.private & filters.command("auth_user"))
+async def auth_user(bot, message):
+    owner_id = int(os.environ["OWNER_ID"])
+    if message.from_user.id == owner_id:
+        try:
+            user_id = int(message.command[1])
+            if not is_authorized(user_id):
+                authorized_users_col.insert_one({"user_id": user_id})
+                await message.reply_text(f"User {user_id} has been authorized.")
+            else:
+                await message.reply_text(f"User {user_id} is already authorized.")
+        except (IndexError, ValueError):
+            await message.reply_text("Usage: /auth_user <user_id>")
+    else:
+        await message.reply_text("You are not authorized to use this command.")
+
+# Handler for /ls_auth command (only for the bot owner)
+@Bot.on_message(filters.private & filters.command("ls_auth"))
+async def ls_auth(bot, message):
+    owner_id = int(os.environ["OWNER_ID"])
+    if message.from_user.id == owner_id:
+        authorized_users = authorized_users_col.find()
+        text = "**Authorized Users:**\n"
+        for user in authorized_users:
+            user_id = user["user_id"]
+            text += f"[{user_id}](tg://user?id={user_id})\n"
+        await message.reply_text(text, disable_web_page_preview=True)
+    else:
+        await message.reply_text("You are not authorized to use this command.")
+
+# Handler for /unauth_user command (only for the bot owner)
+@Bot.on_message(filters.private & filters.command("unauth_user"))
+async def unauth_user(bot, message):
+    owner_id = int(os.environ["OWNER_ID"])
+    if message.from_user.id == owner_id:
+        try:
+            user_id = int(message.command[1])
+            result = authorized_users_col.delete_one({"user_id": user_id})
+            if result.deleted_count:
+                await message.reply_text(f"User {user_id} has been unauthorized.")
+            else:
+                await message.reply_text(f"User {user_id} is not found.")
+        except (IndexError, ValueError):
+            await message.reply_text("Usage: /unauth_user <user_id>")
+    else:
+        await message.reply_text("You are not authorized to use this command.")
 
 def get_id(text):
     if text.startswith("http"):
