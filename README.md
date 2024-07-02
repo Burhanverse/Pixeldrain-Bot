@@ -1,28 +1,21 @@
-# Pixeldrain Bot
-A telegram media to pixeldrain upload bot
+<div align="center">
+  <img src="https://github.com/Burhanverse/assets/blob/main/1_20240704_134259_0000.png" width="360" height="360">
+</div>
+<h1 align="center">Pixeldrain Bot</h1>
+This project is designed to facilitate easy media uploads from Telegram to PixelDrain, providing a seamless integration for file sharing.
 
 ---
 
-## Deploy:
-
-```sh
-git clone https://github.com/Burhanverse/Pixeldrain-Bot.git
-cd Pixeldrain-Bot
-python -m venv venv
-. ./venv/bin/activate
-pip install -r requirements.txt
-# <Create Variables appropriately>
-python bot.py
-```
-
----
-
-## Features:
+## TO-Dos:
  * [x] Introduce MongoDB for managing auth_users.
  * [x] User Authorization Support.
  * [x] Support Pixeldrain API.
  * [x] Support multiple files upload in one go.
  * [x] No cooldown timer.
+ * [ ] Add support for group chats.
+ * [ ] Add support for links mirror.
+
+---
 
 ## Requirements & Variables:
 
@@ -34,6 +27,30 @@ python bot.py
 - `PIXELDRAIN_API_KEY` Your [Pixeldrain](https://pixeldrain.com) API KEY 
 
 ##### Note: Make the required changes in `.env` file.
+
+---
+
+## Deployment:
+
+- Clone the Repository:
+```sh
+git clone https://github.com/Burhanverse/Pixeldrain-Bot.git
+cd Pixeldrain-Bot
+```
+- Setup Virtual Environment:
+```sh
+python -m venv venv
+. ./venv/bin/activate
+```
+- Install Dependencies:
+```sh
+pip install -r requirements.txt
+```
+- Run the Bot:
+```sh
+# <Setup the .env Variables appropriately first>
+python bot.py
+```
 
 ---
 
