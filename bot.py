@@ -2,7 +2,7 @@ import os
 import dotenv
 import requests
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from pymongo import MongoClient
 
 dotenv.load_dotenv()
@@ -35,7 +35,7 @@ def is_authorized(user_id):
     return authorized_users_col.find_one({"user_id": user_id}) is not None
 
 # Filter to check if the user is authorized
-def authorized_user_filter(_, __, message):
+def authorized_user_filter(_, __, message: Message):
     return is_authorized(message.from_user.id)
 
 # Handler for /start command
@@ -57,7 +57,7 @@ async def start(bot, message):
         )
 
 # Handler for /auth_user command (only for the bot owner)
-@Bot.on_message(filters.private & filters.command("auth_user"))
+@Bot.on_message(filters.command("auth_user"))
 async def auth_user(bot, message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
@@ -74,7 +74,7 @@ async def auth_user(bot, message):
         await message.reply_text("You are not authorized to use this command.")
 
 # Handler for /ls_auth command (only for the bot owner)
-@Bot.on_message(filters.private & filters.command("ls_auth"))
+@Bot.on_message(filters.command("ls_auth"))
 async def ls_auth(bot, message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
@@ -88,7 +88,7 @@ async def ls_auth(bot, message):
         await message.reply_text("You are not authorized to use this command.")
 
 # Handler for /unauth_user command (only for the bot owner)
-@Bot.on_message(filters.private & filters.command("unauth_user"))
+@Bot.on_message(filters.command("unauth_user"))
 async def unauth_user(bot, message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
@@ -126,7 +126,7 @@ def format_size(size):
 
 def format_date(date_str):
     date, time = date_str.split("T")
-    time = time.split(".")[0]  # remove milliseconds and 'Z'
+    time = time.split(".")[0]
     return f"{date} {time}"
 
 async def send_data(id, message):
@@ -192,10 +192,17 @@ async def info(bot, update):
     )
     await send_data(id, message)
 
-# Handler for authorized users to upload media
+# Handler for authorized users to upload media in private chats
 @Bot.on_message(filters.private & filters.media & filters.create(authorized_user_filter))
 async def media_filter(bot, update):
+    await handle_media(bot, update)
 
+# Handler for authorized users to upload media in groups
+@Bot.on_message(filters.group & filters.media & filters.create(authorized_user_filter))
+async def group_media_filter(bot, update):
+    await handle_media(bot, update)
+
+async def handle_media(bot, update):
     logs = []
     message = await update.reply_text(
         text="`Processing...`",
@@ -204,7 +211,7 @@ async def media_filter(bot, update):
     )
 
     try:
-        # download
+        # Download the media
         try:
             await message.edit_text(
                 text="`Downloading...`",
@@ -215,7 +222,7 @@ async def media_filter(bot, update):
         media = await update.download()
         logs.append("Downloaded Successfully")
 
-        # rename file to include user ID
+        # Rename file to include user ID
         user_id = update.from_user.id
         dir_name, file_name = os.path.split(media)
         file_base, file_extension = os.path.splitext(file_name)
@@ -223,7 +230,7 @@ async def media_filter(bot, update):
         os.rename(media, renamed_file)
         logs.append("Renamed file successfully")
 
-        # upload
+        # Upload the file
         try:
             await message.edit_text(
                 text="`Downloaded Successfully, Now Uploading...`",
@@ -281,5 +288,14 @@ async def unauthorized_user_handler(bot, message):
             quote=True,
             reply_markup=InlineKeyboardMarkup([[BUTTON]])
         )
+
+# Handler for authorized users to use /pdup as reply to a file in groups
+@Bot.on_message(filters.group & filters.reply & filters.command("pdup") & filters.create(authorized_user_filter))
+async def group_upload_command(bot, message):
+    replied_message = message.reply_to_message
+    if replied_message and (replied_message.photo or replied_message.document or replied_message.video or replied_message.audio):
+        await handle_media(bot, replied_message)
+    else:
+        await message.reply_text("Please reply to a valid media message with /pdup to upload.")
 
 Bot.run()

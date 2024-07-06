@@ -12,7 +12,7 @@ This project is designed to facilitate easy media uploads from Telegram to Pixel
  * [x] Support Pixeldrain API.
  * [x] Support multiple files upload in one go.
  * [x] No cooldown timer.
- * [ ] Add support for group chats.
+ * [x] Add support for group chats(Initial support).
  * [ ] Add support for links mirror.
 
 ---
@@ -58,6 +58,6 @@ python bot.py
 
 - [Pixeldrain API](https://pixeldrain.com/api)
 - [Pyrogram](https://pyrogram.org)
-- [Contributors](https://github.com/Burhanverse/Pixeldrain-Bot/graphs/contributors)
+- [MongoDB](https://mongodb.com)
 
 ---
