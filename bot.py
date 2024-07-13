@@ -56,9 +56,9 @@ async def start(bot, message):
             reply_markup=InlineKeyboardMarkup([[BUTTON]])
         )
 
-# Handler for /auth_user command (only for the bot owner)
-@Bot.on_message(filters.command("auth_user"))
-async def auth_user(bot, message):
+# Handler for /auth command (only for the bot owner)
+@Bot.on_message(filters.command("auth"))
+async def auth(bot, message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
         try:
@@ -69,13 +69,13 @@ async def auth_user(bot, message):
             else:
                 await message.reply_text(f"User {user_id} is already authorized.")
         except (IndexError, ValueError):
-            await message.reply_text("Usage: /auth_user <user_id>")
+            await message.reply_text("Usage: /auth <user_id>")
     else:
         await message.reply_text("You are not authorized to use this command.")
 
-# Handler for /ls_auth command (only for the bot owner)
-@Bot.on_message(filters.command("ls_auth"))
-async def ls_auth(bot, message):
+# Handler for /auths command (only for the bot owner)
+@Bot.on_message(filters.command("auths"))
+async def auths(bot, message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
         authorized_users = authorized_users_col.find()
@@ -87,9 +87,9 @@ async def ls_auth(bot, message):
     else:
         await message.reply_text("You are not authorized to use this command.")
 
-# Handler for /unauth_user command (only for the bot owner)
-@Bot.on_message(filters.command("unauth_user"))
-async def unauth_user(bot, message):
+# Handler for /unauth command (only for the bot owner)
+@Bot.on_message(filters.command("unauth"))
+async def unauth(bot, message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
         try:
@@ -100,7 +100,7 @@ async def unauth_user(bot, message):
             else:
                 await message.reply_text(f"User {user_id} is not found.")
         except (IndexError, ValueError):
-            await message.reply_text("Usage: /unauth_user <user_id>")
+            await message.reply_text("Usage: /unauth <user_id>")
     else:
         await message.reply_text("You are not authorized to use this command.")
 
