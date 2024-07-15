@@ -38,7 +38,7 @@ def is_authorized(user_id):
 # Filter to check if the user is authorized
 def authorized_user_filter(_, __, message: Message):
     return is_authorized(message.from_user.id)
-
+    
 # Handler for /start command
 @Bot.on_message(filters.private & filters.command("start"))
 async def start(bot, message):
@@ -61,51 +61,86 @@ async def start(bot, message):
             ])
         )
 
+# Update user information in the database
+def update_user_info(user_id, username):
+    authorized_users_col.update_one(
+        {"user_id": user_id},
+        {"$set": {"username": username}},
+        upsert=True
+    )
+
+# Function to update username field in the database
+async def update_username(bot, user_id):
+    user_info = await bot.get_users(user_id)
+    username = user_info.username or "No username"
+    update_user_info(user_id, username)
+
 # Handler for /auth command (only for the bot owner)
 @Bot.on_message(filters.command("auth"))
-async def auth(bot, message):
+async def auth(bot, message: Message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
         try:
-            user_id = int(message.command[1])
-            if not is_authorized(user_id):
-                authorized_users_col.insert_one({"user_id": user_id})
-                await message.reply_text(f"User {user_id} has been authorized.")
+            if message.reply_to_message:
+                user = message.reply_to_message.from_user
             else:
-                await message.reply_text(f"User {user_id} is already authorized.")
+                user_id = int(message.command[1])
+                user = await bot.get_users(user_id)
+            
+            user_id = user.id
+            username = user.username or "No username"
+
+            if not is_authorized(user_id):
+                authorized_users_col.insert_one({"user_id": user_id, "username": username})
+                await message.reply_text(f"User {user_id} (@{username}) has been authorized.")
+            else:
+                await update_username(bot, user_id)
+                await message.reply_text(f"User {user_id} (@{username}) is already authorized.")
         except (IndexError, ValueError):
-            await message.reply_text("Usage: /auth <user_id>")
+            await message.reply_text("Usage: /auth <user_id> or reply to a user's message with /auth")
     else:
         await message.reply_text("You are not authorized to use this command.")
 
 # Handler for /auths command (only for the bot owner)
 @Bot.on_message(filters.command("auths"))
-async def auths(bot, message):
+async def auths(bot, message: Message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
         authorized_users = authorized_users_col.find()
         text = "**Authorized Users:**\n"
         for user in authorized_users:
             user_id = user["user_id"]
-            text += f"[{user_id}](tg://user?id={user_id})\n"
+            username = user.get("username", "No username")
+            if username == "No username":
+                await update_username(bot, user_id)
+                user_info = await bot.get_users(user_id)
+                username = user_info.username or "No username"
+            text += f"[{user_id}](tg://user?id={user_id}) (@{username})\n"
         await message.reply_text(text, disable_web_page_preview=True)
     else:
         await message.reply_text("You are not authorized to use this command.")
 
 # Handler for /unauth command (only for the bot owner)
 @Bot.on_message(filters.command("unauth"))
-async def unauth(bot, message):
+async def unauth(bot, message: Message):
     owner_id = int(os.environ["OWNER_ID"])
     if message.from_user.id == owner_id:
         try:
-            user_id = int(message.command[1])
+            if message.reply_to_message:
+                user_id = message.reply_to_message.from_user.id
+            else:
+                user_id = int(message.command[1])
+
+            user_info = await bot.get_users(user_id)
+            username = user_info.username or "No username"
+
             result = authorized_users_col.delete_one({"user_id": user_id})
             if result.deleted_count:
-                await message.reply_text(f"User {user_id} has been unauthorized.")
+                await message.reply_text(f"User {user_id} (@{username}) has been unauthorized.")
             else:
                 await message.reply_text(f"User {user_id} is not found.")
         except (IndexError, ValueError):
-            await message.reply_text("Usage: /unauth <user_id>")
+            await message.reply_text("Usage: /unauth <user_id> or reply to a user's message with /unauth")
     else:
         await message.reply_text("You are not authorized to use this command.")
 
