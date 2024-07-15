@@ -20,9 +20,10 @@ PIXELDRAIN_API_KEY = os.environ["PIXELDRAIN_API_KEY"]
 START_TEXT = """Hello {},
 Ready to share some media? Send a file to get a Pixeldrain stream link, or drop a Pixeldrain media ID or link to get the scoop on your file!"""
 
-UNAUTH_TEXT = """Sorry, you are not authorized to use this bot. Please contact the bot owner by clicking the button below for access."""
+UNAUTH_TEXT = """Sorry, you are not authorized to use this bot. Please contact the bot owner for access."""
 
-BUTTON = InlineKeyboardButton(text="Feedback", url="https://telegram.me/aqxza")
+BUTTON1 = InlineKeyboardButton(text="AquaMods", url="https://akuamods.t.me")
+BUTTON2 = InlineKeyboardButton(text="Contact Owner", url="https://aqxzaxbot.t.me")
 
 # MongoDB configuration
 MONGODB_URI = os.environ["MONGODB_URI"]
@@ -46,14 +47,18 @@ async def start(bot, message):
             text=START_TEXT.format(message.from_user.mention),
             disable_web_page_preview=True,
             quote=True,
-            reply_markup=InlineKeyboardMarkup([[BUTTON]])
+            reply_markup=InlineKeyboardMarkup([
+            [BUTTON1, BUTTON2]
+            ])
         )
     else:
         await message.reply_text(
             text=UNAUTH_TEXT,
             disable_web_page_preview=True,
             quote=True,
-            reply_markup=InlineKeyboardMarkup([[BUTTON]])
+            reply_markup=InlineKeyboardMarkup([
+            [BUTTON1, BUTTON2]
+            ])
         )
 
 # Handler for /auth command (only for the bot owner)
@@ -141,14 +146,10 @@ async def send_data(id, message):
     if data:
         text = (
             f"**File Name:** `{data['name']}`\n"
-            f"**Download Page:** [Click Here](https://pixeldrain.com/u/{id})\n"
-            f"**Direct Link:** [Click Here](https://pixeldrain.com/api/file/{id})\n"
             f"**Upload Date:** `{format_date(data['date_upload'])}`\n"
-            f"**Last View Date:** `{format_date(data['date_last_view'])}`\n"
             f"**File Size:** `{format_size(data['size'])}`\n"
-            f"**Total Views:** `{data['views']}`\n"
-            f"**Bandwidth Used:** `{format_size(data['bandwidth_used'])}`\n"
-            f"**File Type:** `{data['mime_type']}`"
+            f"**File Type:** `{data['mime_type']}`\n\n"
+            f"\u00A9 [AquaMods](https://akuamods.t.me)"
         )
     else:
         text = "Failed to retrieve file information."
@@ -165,7 +166,7 @@ async def send_data(id, message):
                     url=f"https://telegram.me/share/url?url=https://pixeldrain.com/u/{id}"
                 )
             ],
-            [BUTTON]
+            [BUTTON2]
         ]
     )
 
@@ -197,11 +198,6 @@ async def info(bot, update):
 async def media_filter(bot, update):
     await handle_media(bot, update)
 
-# Handler for authorized users to upload media in groups
-@Bot.on_message(filters.group & filters.media & filters.create(authorized_user_filter))
-async def group_media_filter(bot, update):
-    await handle_media(bot, update)
-
 async def handle_media(bot, update):
     logs = []
     message = await update.reply_text(
@@ -226,7 +222,7 @@ async def handle_media(bot, update):
         user_id = update.from_user.id
         dir_name, file_name = os.path.split(media)
         file_base, file_extension = os.path.splitext(file_name)
-        renamed_file = os.path.join(dir_name, f"{user_id}_{file_base}{file_extension}")
+        renamed_file = os.path.join(dir_name, f"{file_base}_{user_id}{file_extension}")
         os.rename(media, renamed_file)
         logs.append("Renamed file successfully")
 
@@ -286,7 +282,9 @@ async def unauthorized_user_handler(bot, message):
             text=UNAUTH_TEXT,
             disable_web_page_preview=True,
             quote=True,
-            reply_markup=InlineKeyboardMarkup([[BUTTON]])
+            reply_markup=InlineKeyboardMarkup([
+            [BUTTON1, BUTTON2]
+            ])
         )
 
 # Handler for authorized users to use /pdup as reply to a file in groups

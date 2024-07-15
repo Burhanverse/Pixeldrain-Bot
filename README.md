@@ -7,7 +7,7 @@ This project is designed to facilitate easy media uploads from Telegram to Pixel
 ---
 
 ## Bot Commands:
-- `/start` This is a generic like any other bot.
+- `/start` This is generic like any other bot.
 - `/auth` Used to authorise a user and can be used in private mode only. [Owner CMD]
 - `/unauth` Used to revoke authorisation. [Owner CMD]
 - `/auths` Used to get the the authorised user list. [Owner CMD]
