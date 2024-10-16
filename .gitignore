@@ -4,4 +4,5 @@
 *.session-journal
 *.pyc
 .env
+main.env
 test.py
