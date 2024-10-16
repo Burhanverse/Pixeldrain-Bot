@@ -197,6 +197,12 @@ async def send_data(id, message):
                     url=f"https://pixeldrain.com/u/{id}"
                 ),
                 InlineKeyboardButton(
+                    text="Direct Link",
+                    url=f"https://pixeldrain.com/api/file/{id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="Share Link",
                     url=f"https://telegram.me/share/url?url=https://pixeldrain.com/u/{id}"
                 )
