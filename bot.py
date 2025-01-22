@@ -1,4 +1,5 @@
 import os
+import httpx
 import dotenv
 import requests
 from pyrogram import Client, filters
@@ -256,6 +257,7 @@ async def handle_media(bot, update):
             )
         except:
             pass
+
         media = await update.download()
         logs.append("Downloaded Successfully")
 
@@ -276,38 +278,21 @@ async def handle_media(bot, update):
         except:
             pass
 
-        try:
-            with open(renamed_file, 'rb') as file:
-                response = requests.post(
-                    "https://pixeldrain.com/api/file",
-                    files={'file': file},
-                    auth=('', PIXELDRAIN_API_KEY)
-                )
-            logs.append("Uploaded Successfully")
-            os.remove(renamed_file)
-            logs.append("Removed media")
+        # Call the chunked upload function
+        response_data, upload_logs = await upload_file_stream(renamed_file, PIXELDRAIN_API_KEY)
+        logs.extend(upload_logs)  # Append logs from the upload function
 
-            response_data = response.json()
-            if response.status_code == 201:
-                await message.edit_text(
-                    text="`Uploaded Successfully!`",
-                    disable_web_page_preview=True
-                )
-                await send_data(response_data["id"], message)
-            else:
-                logs.append("Success is False")
-                await message.edit_text(
-                    text=f"**Error {response_data['value']}:-** `{response_data['message']}`",
-                    disable_web_page_preview=True
-                )
-
-        except Exception as error:
-            logs.append("Not Uploading")
+        if "error" in response_data:
             await message.edit_text(
-                text=f"Error :- `{error}`" + "\n\n" + '\n'.join(logs),
+                text=f"Error :- `{response_data['error']}`" + "\n\n" + '\n'.join(logs),
                 disable_web_page_preview=True
             )
-            return
+        else:
+            await message.edit_text(
+                text="`Uploaded Successfully!`",
+                disable_web_page_preview=True
+            )
+            await send_data(response_data["id"], message)
 
     except Exception as error:
         await message.edit_text(
@@ -315,6 +300,37 @@ async def handle_media(bot, update):
             disable_web_page_preview=True
         )
 
+
+async def upload_file_stream(file_path, pixeldrain_api_key, chunk_size=10 * 1024 * 1024):  # 10 MB chunks
+    logs = []
+    try:
+        # Use HTTPX for asynchronous HTTP requests
+        async with httpx.AsyncClient() as client:
+            with open(file_path, "rb") as file:
+                # Stream file in chunks
+                file_data = {"file": (os.path.basename(file_path), file, "application/octet-stream")}
+                response = await client.post(
+                    "https://pixeldrain.com/api/file",
+                    files=file_data,
+                    auth=("", pixeldrain_api_key),
+                    timeout=300.0  # Timeout for large files
+                )
+                response.raise_for_status()  # Check for HTTP errors
+
+        logs.append("Uploaded Successfully")
+        os.remove(file_path)  # Delete the file after successful upload
+        logs.append("Removed media")
+
+        response_data = response.json()
+        return response_data, logs
+
+    except httpx.RequestError as e:
+        logs.append(f"HTTPX Request error: {str(e)}")
+        return {"error": str(e)}, logs
+    except Exception as e:
+        logs.append(f"Unexpected error: {str(e)}")
+        return {"error": str(e)}, logs
+        
 # Handler for unauthorized users attempting to use the bot
 @Bot.on_message(filters.private & ~filters.command("start"))
 async def unauthorized_user_handler(bot, message):
