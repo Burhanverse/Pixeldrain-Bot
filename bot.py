@@ -8,7 +8,6 @@ from pymongo import MongoClient
 
 dotenv.load_dotenv()
 
-# Bot configuration
 Bot = Client(
     "Pixeldrain-Bot",
     bot_token=os.environ["BOT_TOKEN"],
@@ -23,10 +22,9 @@ Ready to share some media? Send a file to get a Pixeldrain stream link, or drop 
 
 UNAUTH_TEXT = """Sorry, you are not authorized to use this bot. Please contact the bot owner for access."""
 
-BUTTON1 = InlineKeyboardButton(text="AquaMods", url="https://akuamods.t.me")
+BUTTON1 = InlineKeyboardButton(text="𝘗𝘳𝘫𝘬𝘵:𝘚𝘪𝘥.", url="https://burhanverse.t.me")
 BUTTON2 = InlineKeyboardButton(text="Contact Owner", url="https://aqxzaxbot.t.me")
 
-# MongoDB configuration
 MONGODB_URI = os.environ["MONGODB_URI"]
 client = MongoClient(MONGODB_URI)
 db = client['pixeldrain_bot']
@@ -185,7 +183,7 @@ async def send_data(id, message):
             f"**Upload Date:** `{format_date(data['date_upload'])}`\n"
             f"**File Size:** `{format_size(data['size'])}`\n"
             f"**File Type:** `{data['mime_type']}`\n\n"
-            f"\u00A9 [AquaMods](https://akuamods.t.me)"
+            f"\u00A9 [𝘗𝘳𝘫𝘬𝘵:𝘚𝘪𝘥.](https://burhanverse.t.me)"
         )
     else:
         text = "Failed to retrieve file information."
@@ -312,8 +310,7 @@ async def upload_file_stream(file_path, pixeldrain_api_key, chunk_size=10 * 1024
                 response = await client.post(
                     "https://pixeldrain.com/api/file",
                     files=file_data,
-                    auth=("", pixeldrain_api_key),
-                    timeout=300.0  # Timeout for large files
+                    auth=("", pixeldrain_api_key)
                 )
                 response.raise_for_status()  # Check for HTTP errors
 

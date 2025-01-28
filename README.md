@@ -16,12 +16,13 @@ This project is designed to facilitate easy media uploads from Telegram to Pixel
 ---
 
 ## TO-Dos:
- * [x] Introduce MongoDB for managing auth_users.
+ * [x] Introduce MongoDB for managing `auth_users`.
  * [x] User Authorization Support.
  * [x] Support Pixeldrain API.
  * [x] Support multiple files upload in one go.
  * [x] No cooldown timer.
  * [x] Add support for group chats.
+ * [x] Use `HTTPX` for handling large file uploads.
  * [ ] Add support for links mirror.
 
 ---
@@ -57,7 +58,6 @@ pip install -r requirements.txt
 ```
 - Run the Bot:
 ```sh
-# <Setup the .env Variables appropriately first>
 python bot.py
 ```
 
