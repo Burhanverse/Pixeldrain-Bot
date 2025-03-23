@@ -171,7 +171,7 @@ def format_date(date_str):
 async def send_data(id, message):
     # pixeldrain data
     try:
-        response = requests.get(f"https://pixeldrain.com/api/file/{id}/info")
+        response = requests.get(f"https://pixeldra.in/api/file/{id}/info")
         data = response.json() if response.status_code == 200 else None
     except Exception as e:
         data = None
@@ -193,17 +193,17 @@ async def send_data(id, message):
             [
                 InlineKeyboardButton(
                     text="Open Link",
-                    url=f"https://pixeldrain.com/u/{id}"
+                    url=f"https://pixeldra.in/u/{id}"
                 ),
                 InlineKeyboardButton(
                     text="Direct Link",
-                    url=f"https://pixeldrain.com/api/file/{id}"
+                    url=f"https://pixeldra.in/api/file/{id}"
                 )
             ],
             [
                 InlineKeyboardButton(
                     text="Share Link",
-                    url=f"https://telegram.me/share/url?url=https://pixeldrain.com/u/{id}"
+                    url=f"https://telegram.me/share/url?url=https://pixeldra.in/u/{id}"
                 )
             ],
             [BUTTON2]
