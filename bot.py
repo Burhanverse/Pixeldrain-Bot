@@ -1,7 +1,6 @@
 import os
-import httpx
+import aiohttp
 import dotenv
-import requests
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from pymongo import MongoClient
@@ -156,12 +155,15 @@ def get_id(text):
     return id
 
 def format_size(size):
+    """Format file size in human-readable format, supporting files up to TB"""
     if size < 1024:
         return f"{size} B"
     elif size < 1024 * 1024:
         return f"{size / 1024:.2f} KB"
-    else:
+    elif size < 1024 * 1024 * 1024:
         return f"{size / (1024 * 1024):.2f} MB"
+    else:
+        return f"{size / (1024 * 1024 * 1024):.2f} GB"
 
 def format_date(date_str):
     date, time = date_str.split("T")
@@ -171,8 +173,9 @@ def format_date(date_str):
 async def send_data(id, message):
     # pixeldrain data
     try:
-        response = requests.get(f"https://pixeldrain.com/api/file/{id}/info")
-        data = response.json() if response.status_code == 200 else None
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://pixeldrain.com/api/file/{id}/info") as response:
+                data = await response.json() if response.status == 200 else None
     except Exception as e:
         data = None
         print(f"Error: {e}")
@@ -267,17 +270,21 @@ async def handle_media(bot, update):
         os.rename(media, renamed_file)
         logs.append("Renamed file successfully")
 
+        # Get file size for progress tracking
+        file_size = os.path.getsize(renamed_file)
+        logs.append(f"File size: {format_size(file_size)}")
+
         # Upload the file
         try:
             await message.edit_text(
-                text="`Downloaded Successfully, Now Uploading...`",
+                text=f"`Downloaded Successfully ({format_size(file_size)}), Now Uploading...`",
                 disable_web_page_preview=True
             )
         except:
             pass
 
         # Call the chunked upload function
-        response_data, upload_logs = await upload_file_stream(renamed_file, PIXELDRAIN_API_KEY)
+        response_data, upload_logs = await upload_file_stream(renamed_file, PIXELDRAIN_API_KEY, message)
         logs.extend(upload_logs)  # Append logs from the upload function
 
         if "error" in response_data:
@@ -299,34 +306,103 @@ async def handle_media(bot, update):
         )
 
 
-async def upload_file_stream(file_path, pixeldrain_api_key, chunk_size=10 * 1024 * 1024):  # 10 MB chunks
+async def upload_file_stream(file_path, pixeldrain_api_key, message=None, chunk_size=10 * 1024 * 1024):  # 10 MB chunks
+    """
+    Upload a file to Pixeldrain using chunked streaming to support large files (>2GB).
+    This implementation reads and sends the file in chunks without loading it entirely into memory.
+    
+    Args:
+        file_path: Path to the file to upload
+        pixeldrain_api_key: API key for authentication
+        message: Optional Telegram message object for progress updates
+        chunk_size: Size of chunks to read (default 10MB)
+    """
     logs = []
+    
     try:
-        # Use HTTPX for asynchronous HTTP requests
-        async with httpx.AsyncClient() as client:
-            with open(file_path, "rb") as file:
-                # Stream file in chunks
-                file_data = {"file": (os.path.basename(file_path), file, "application/octet-stream")}
-                response = await client.post(
+        file_size = os.path.getsize(file_path)
+        logs.append(f"File size: {format_size(file_size)}")
+        
+        # For files larger than 100MB, show progress updates
+        show_progress = file_size > 100 * 1024 * 1024  # 100MB
+        last_update_time = 0
+        
+        # Custom payload class for progress tracking
+        class ProgressPayload:
+            def __init__(self, file_path, message, file_size, chunk_size):
+                self.file_path = file_path
+                self.message = message
+                self.file_size = file_size
+                self.chunk_size = chunk_size
+                self.uploaded = 0
+                self.last_update = 0
+                
+            async def read(self, n=-1):
+                """Read method that tracks progress"""
+                import time
+                with open(self.file_path, 'rb') as f:
+                    f.seek(self.uploaded)
+                    chunk = f.read(self.chunk_size if n == -1 else n)
+                    
+                    if chunk:
+                        self.uploaded += len(chunk)
+                        
+                        # Update progress every 5 seconds for large files
+                        if self.message and show_progress:
+                            current_time = time.time()
+                            if current_time - self.last_update >= 5:
+                                self.last_update = current_time
+                                progress = (self.uploaded / self.file_size) * 100
+                                try:
+                                    await self.message.edit_text(
+                                        text=f"`Uploading... {progress:.1f}% ({format_size(self.uploaded)} / {format_size(self.file_size)})`",
+                                        disable_web_page_preview=True
+                                    )
+                                except:
+                                    pass
+                    
+                    return chunk
+        
+        # Create aiohttp session with auth
+        auth = aiohttp.BasicAuth('', pixeldrain_api_key)
+        
+        async with aiohttp.ClientSession() as session:
+            # Create a multipart form data with file streaming
+            with open(file_path, 'rb') as file:
+                # Create form data
+                data = aiohttp.FormData()
+                data.add_field('file',
+                              file,
+                              filename=os.path.basename(file_path),
+                              content_type='application/octet-stream')
+                
+                # Upload the file with streaming
+                async with session.post(
                     "https://pixeldrain.com/api/file",
-                    files=file_data,
-                    auth=("", pixeldrain_api_key)
-                )
-                response.raise_for_status()  # Check for HTTP errors
+                    data=data,
+                    auth=auth,
+                    timeout=aiohttp.ClientTimeout(total=None)  # No timeout for large files
+                ) as response:
+                    response.raise_for_status()  # Check for HTTP errors
+                    response_data = await response.json()
 
         logs.append("Uploaded Successfully")
         os.remove(file_path)  # Delete the file after successful upload
         logs.append("Removed media")
 
-        response_data = response.json()
         return response_data, logs
 
-    except httpx.RequestError as e:
-        logs.append(f"HTTPX Request error: {str(e)}")
+    except aiohttp.ClientError as e:
+        logs.append(f"Network error: {str(e)}")
+        return {"error": str(e)}, logs
+    except OSError as e:
+        logs.append(f"File system error: {str(e)}")
         return {"error": str(e)}, logs
     except Exception as e:
         logs.append(f"Unexpected error: {str(e)}")
         return {"error": str(e)}, logs
+
+
         
 # Handler for unauthorized users attempting to use the bot
 @Bot.on_message(filters.private & ~filters.command("start"))

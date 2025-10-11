@@ -6,3 +6,6 @@
 .env
 main.env
 test.py
+CHANGES.md
+MIGRATION.md
+README_NEW.md
