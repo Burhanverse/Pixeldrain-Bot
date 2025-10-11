@@ -174,8 +174,19 @@ async def send_data(id, message):
     # pixeldrain data
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://pixeldra.in/api/file/{id}/info") as response:
-                data = await response.json() if response.status == 200 else None
+            async with session.get(f"https://pixeldrain.com/api/file/{id}/info") as response:
+                # Some Pixeldrain responses may come back as text/plain even when
+                # they contain JSON-like payloads. Try to decode JSON permissively
+                try:
+                    data = await response.json(content_type=None) if response.status == 200 else None
+                except Exception:
+                    # Fallback: read text and attempt to parse JSON, otherwise keep text
+                    text = await response.text()
+                    try:
+                        import json
+                        data = json.loads(text) if text else None
+                    except Exception:
+                        data = None
     except Exception as e:
         data = None
         print(f"Error: {e}")
@@ -196,17 +207,17 @@ async def send_data(id, message):
             [
                 InlineKeyboardButton(
                     text="Open Link",
-                    url=f"https://pixeldra.in/u/{id}"
+                    url=f"https://pixeldrain.com/u/{id}"
                 ),
                 InlineKeyboardButton(
-                    text="Direct Link",
-                    url=f"https://pixeldra.in/api/file/{id}"
+                        text="Direct Link",
+                        url=f"https://pixeldrain.com/api/file/{id}"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="Share Link",
-                    url=f"https://telegram.me/share/url?url=https://pixeldra.in/u/{id}"
+                        text="Share Link",
+                        url=f"https://telegram.me/share/url?url=https://pixeldrain.com/u/{id}"
                 )
             ],
             [BUTTON2]
@@ -381,15 +392,29 @@ async def upload_file_stream(file_path, pixeldrain_api_key, message=None, chunk_
                               filename=os.path.basename(file_path),
                               content_type='application/octet-stream')
                 
-                # Upload the file with streaming
+                # Upload the file with streaming to the correct pixeldrain.com domain
                 async with session.post(
-                    "https://pixeldra.in/api/file",
+                    "https://pixeldrain.com/api/file",
                     data=data,
                     headers=headers,
                     timeout=aiohttp.ClientTimeout(total=None)  # No timeout for large files
                 ) as response:
-                    response.raise_for_status()  # Check for HTTP errors
-                    response_data = await response.json()
+                    # Don't assume JSON content-type. Pixeldrain may return text/plain
+                    # even on success (HTTP 201). Try permissive JSON decoding first,
+                    # then fall back to reading text.
+                    try:
+                        response_data = await response.json(content_type=None)
+                    except Exception:
+                        text = await response.text()
+                        try:
+                            import json
+                            response_data = json.loads(text) if text else {"id": None}
+                        except Exception:
+                            # If response is plain text and not JSON, capture it for logs
+                            response_data = {"id": None, "raw": text}
+                    # Raise for unexpected HTTP errors (4xx/5xx)
+                    if response.status >= 400:
+                        response.raise_for_status()
 
         logs.append("Uploaded Successfully")
         os.remove(file_path)  # Delete the file after successful upload
