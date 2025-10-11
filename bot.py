@@ -363,8 +363,13 @@ async def upload_file_stream(file_path, pixeldrain_api_key, message=None, chunk_
                     
                     return chunk
         
-        # Create aiohttp session with auth
-        auth = aiohttp.BasicAuth('', pixeldrain_api_key)
+        # Create aiohttp session with proper Basic Authentication
+        # Pixeldrain expects Basic Auth with empty username and API key as password
+        import base64
+        credentials = base64.b64encode(f':{pixeldrain_api_key}'.encode()).decode()
+        headers = {
+            'Authorization': f'Basic {credentials}'
+        }
         
         async with aiohttp.ClientSession() as session:
             # Create a multipart form data with file streaming
@@ -380,7 +385,7 @@ async def upload_file_stream(file_path, pixeldrain_api_key, message=None, chunk_
                 async with session.post(
                     "https://pixeldra.in/api/file",
                     data=data,
-                    auth=auth,
+                    headers=headers,
                     timeout=aiohttp.ClientTimeout(total=None)  # No timeout for large files
                 ) as response:
                     response.raise_for_status()  # Check for HTTP errors
