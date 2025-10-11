@@ -174,7 +174,7 @@ async def send_data(id, message):
     # pixeldrain data
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://pixeldrain.com/api/file/{id}/info") as response:
+            async with session.get(f"https://pixeldra.in/api/file/{id}/info") as response:
                 data = await response.json() if response.status == 200 else None
     except Exception as e:
         data = None
@@ -196,17 +196,17 @@ async def send_data(id, message):
             [
                 InlineKeyboardButton(
                     text="Open Link",
-                    url=f"https://pixeldrain.com/u/{id}"
+                    url=f"https://pixeldra.in/u/{id}"
                 ),
                 InlineKeyboardButton(
                     text="Direct Link",
-                    url=f"https://pixeldrain.com/api/file/{id}"
+                    url=f"https://pixeldra.in/api/file/{id}"
                 )
             ],
             [
                 InlineKeyboardButton(
                     text="Share Link",
-                    url=f"https://telegram.me/share/url?url=https://pixeldrain.com/u/{id}"
+                    url=f"https://telegram.me/share/url?url=https://pixeldra.in/u/{id}"
                 )
             ],
             [BUTTON2]
@@ -378,7 +378,7 @@ async def upload_file_stream(file_path, pixeldrain_api_key, message=None, chunk_
                 
                 # Upload the file with streaming
                 async with session.post(
-                    "https://pixeldrain.com/api/file",
+                    "https://pixeldra.in/api/file",
                     data=data,
                     auth=auth,
                     timeout=aiohttp.ClientTimeout(total=None)  # No timeout for large files
