@@ -1,6 +1,6 @@
-pyrogram==2.0.106
-tgcrypto==1.2.5
-pixeldrain==1.1.2
-python-dotenv==1.0.1
-pymongo==4.11.1
-aiohttp==3.11.9
+pyrofork
+tgcrypto
+pixeldrain
+python-dotenv
+pymongo
+aiohttp
