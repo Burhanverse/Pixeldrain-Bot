@@ -4,3 +4,4 @@ pixeldrain
 python-dotenv
 pymongo
 aiohttp
+asyncio

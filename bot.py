@@ -1,5 +1,6 @@
 import os
 import aiohttp
+import asyncio
 import dotenv
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
@@ -35,6 +36,8 @@ def is_authorized(user_id):
 
 # Filter to check if the user is authorized
 def authorized_user_filter(_, __, message: Message):
+    if not message.from_user:
+        return False
     return is_authorized(message.from_user.id)
     
 # Handler for /start command
@@ -274,7 +277,11 @@ async def handle_media(bot, update):
         logs.append("Downloaded Successfully")
 
         # Rename file to include user ID
-        user_id = update.from_user.id
+        if not update.from_user:
+            # If sender information is missing, use 'unknown' to avoid crashes
+            user_id = "unknown"
+        else:
+            user_id = update.from_user.id
         dir_name, file_name = os.path.split(media)
         file_base, file_extension = os.path.splitext(file_name)
         renamed_file = os.path.join(dir_name, f"{file_base}_{user_id}{file_extension}")
@@ -294,21 +301,19 @@ async def handle_media(bot, update):
         except:
             pass
 
-        # Call the chunked upload function
-        response_data, upload_logs = await upload_file_stream(renamed_file, PIXELDRAIN_API_KEY, message)
-        logs.extend(upload_logs)  # Append logs from the upload function
-
-        if "error" in response_data:
+        # Queue the upload to run in background so the update loop isn't blocked.
+        # This helps avoid long-poll timeouts like `updates.GetState`.
+        try:
+            asyncio.create_task(background_upload(renamed_file, PIXELDRAIN_API_KEY, message, logs))
             await message.edit_text(
-                text=f"Error :- `{response_data['error']}`" + "\n\n" + '\n'.join(logs),
+                text="`Upload queued — processing in background. You'll get a link when it's ready.`",
                 disable_web_page_preview=True
             )
-        else:
+        except Exception as err:
             await message.edit_text(
-                text="`Uploaded Successfully!`",
+                text=f"Failed to queue upload: `{err}`\n\n" + '\n'.join(logs),
                 disable_web_page_preview=True
             )
-            await send_data(response_data["id"], message)
 
     except Exception as error:
         await message.edit_text(
@@ -433,6 +438,54 @@ async def upload_file_stream(file_path, pixeldrain_api_key, message=None, chunk_
         return {"error": str(e)}, logs
 
 
+async def background_upload(file_path, pixeldrain_api_key, message, initial_logs=None):
+    """Run the upload in background and update the Telegram message when done.
+
+    This function catches exceptions and edits the original message with status.
+    """
+    logs = initial_logs or []
+    try:
+        # Keep updating the user that we're working (safe attempt)
+        try:
+            await message.edit_text(text="`Uploading in background...`", disable_web_page_preview=True)
+        except:
+            pass
+
+        response_data, upload_logs = await upload_file_stream(file_path, pixeldrain_api_key, message)
+        logs.extend(upload_logs)
+
+        if "error" in response_data:
+            try:
+                await message.edit_text(
+                    text=f"Error :- `{response_data['error']}`" + "\n\n" + '\n'.join(logs),
+                    disable_web_page_preview=True
+                )
+            except:
+                pass
+        else:
+            try:
+                await message.edit_text(text="`Uploaded Successfully!`", disable_web_page_preview=True)
+            except:
+                pass
+            # If pixeldrain returned an 'id', send file info
+            if response_data and response_data.get("id"):
+                await send_data(response_data["id"], message)
+            else:
+                # If no id but raw response exists, show it for debugging
+                raw = response_data.get("raw") if isinstance(response_data, dict) else None
+                if raw:
+                    try:
+                        await message.edit_text(text=f"Uploaded but could not parse response. Raw:\n`{raw}`", disable_web_page_preview=True)
+                    except:
+                        pass
+    except Exception as e:
+        try:
+            logs.append(f"Background worker error: {e}")
+            await message.edit_text(text=f"Unexpected error in background upload: `{e}`\n\n" + '\n'.join(logs), disable_web_page_preview=True)
+        except:
+            pass
+
+
         
 # Handler for unauthorized users attempting to use the bot
 @Bot.on_message(filters.private & ~filters.command("start"))
@@ -451,6 +504,15 @@ async def unauthorized_user_handler(bot, message):
 @Bot.on_message(filters.group & filters.reply & filters.command("pdup") & filters.create(authorized_user_filter))
 async def group_upload_command(bot, message):
     replied_message = message.reply_to_message
+    if not replied_message:
+        await message.reply_text("Please reply to a valid media message with /pdup to upload.")
+        return
+
+    # Guard against replied message without sender
+    if not replied_message.from_user:
+        await message.reply_text("Cannot upload media from anonymous/service messages.")
+        return
+
     if replied_message and (replied_message.photo or replied_message.document or replied_message.video or replied_message.audio):
         await handle_media(bot, replied_message)
     else:
